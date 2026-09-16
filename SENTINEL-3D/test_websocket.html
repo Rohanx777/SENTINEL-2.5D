@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SENTINEL-3D WebSocket Test</title>
+    <style>
+        body {
+            background: #030712;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            margin: 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .connected {
+            background: #10b981;
+            color: #000;
+        }
+        .disconnected {
+            background: #ef4444;
+        }
+        .data {
+            background: #1e293b;
+            padding: 15px;
+            border: 1px solid #334155;
+            border-radius: 5px;
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <h1>🛡️ SENTINEL-3D WebSocket Connection Test</h1>
+
+    <div id="status" class="status disconnected">
+        ⚠️ Connecting to ws://localhost:8005/ws/stream_map...
+    </div>
+
+    <div>
+        <strong>Frames Received:</strong> <span id="frame-count">0</span><br>
+        <strong>FPS:</strong> <span id="fps">0</span><br>
+        <strong>Latency:</strong> <span id="latency">—</span><br>
+        <strong>Cells:</strong> <span id="cells">—</span>
+    </div>
+
+    <div class="data">
+        <strong>Last Frame Data (JSON):</strong>
+        <pre id="data">Waiting for data...</pre>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const frameCountEl = document.getElementById('frame-count');
+        const fpsEl = document.getElementById('fps');
+        const latencyEl = document.getElementById('latency');
+        const cellsEl = document.getElementById('cells');
+        const dataEl = document.getElementById('data');
+
+        let frameCount = 0;
+        let startTime = Date.now();
+
+        const ws = new WebSocket('ws://localhost:8005/ws/stream_map');
+
+        ws.onopen = () => {
+            statusEl.textContent = '✅ CONNECTED to SENTINEL-3D Stream';
+            statusEl.className = 'status connected';
+            console.log('[WebSocket] Connected');
+        };
+
+        ws.onmessage = (event) => {
+            frameCount++;
+            frameCountEl.textContent = frameCount;
+
+            try {
+                const data = JSON.parse(event.data);
+
+                // Update telemetry
+                if (data.telemetry) {
+                    fpsEl.textContent = data.telemetry.fps || 0;
+                    latencyEl.textContent = (data.telemetry.latency_ms || 0) + ' ms';
+                }
+
+                // Update cell count
+                if (data.grid_data) {
+                    cellsEl.textContent = data.grid_data.length;
+                }
+
+                // Display last frame (truncated)
+                const display = JSON.stringify(data, null, 2);
+                dataEl.textContent = display.length > 2000
+                    ? display.substring(0, 2000) + '\n\n... (truncated)'
+                    : display;
+
+            } catch (err) {
+                console.error('[Parse Error]', err);
+                dataEl.textContent = 'Error parsing frame: ' + err.message;
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error('[WebSocket Error]', err);
+            statusEl.textContent = '❌ ERROR: Cannot connect to backend';
+            statusEl.className = 'status disconnected';
+        };
+
+        ws.onclose = () => {
+            statusEl.textContent = '⚠️ DISCONNECTED from backend';
+            statusEl.className = 'status disconnected';
+            console.log('[WebSocket] Disconnected');
+        };
+    </script>
+</body>
+</html>
