@@ -1,0 +1,166 @@
+# SENTINEL-2.5D Sensor Configuration
+# All sensor-specific parameters, grid settings, and coordinate systems
+# This replaces all hardcoded values in the codebase
+
+sensor:
+  name: "Velodyne HDL-64E"
+  type: "lidar"
+  frequency_hz: 10
+
+  # Physical sensor specifications
+  range:
+    min_meters: 2.0
+    max_meters: 120.0
+    operational_max: 45.0  # Used for grid generation
+
+  # Field of view
+  fov:
+    horizontal_deg: 360.0
+    vertical_deg: 26.9
+    vertical_min_deg: -24.9
+    vertical_max_deg: 2.0
+
+  # Point cloud filtering
+  filtering:
+    z_min: -3.5  # Remove ground reflections
+    z_max: 8.0   # Remove sky noise
+    min_distance_from_origin: 0.5  # Remove sensor self-reflections
+
+# Grid representation configurations
+grid:
+  # Polar/Cylindrical grid (sensor-relative)
+  polar:
+    enabled: true
+    num_rings: 24        # Radial divisions
+    num_sectors: 64      # Azimuthal divisions (360° / 64 = 5.625° per sector)
+    r_min: 2.0
+    r_max: 45.0
+
+  # Cartesian grid (world-fixed)
+  cartesian:
+    enabled: true
+    x_min: -40.0
+    x_max: 40.0
+    y_min: -20.0
+    y_max: 20.0
+    cell_size: 2.0       # meters per cell edge
+
+  # Voxel grid (for 3D neural network)
+  voxel:
+    # Cylinder3D default grid
+    size: [480, 360, 32]  # [rho, phi, z] dimensions
+    range:
+      rho: [0.0, 50.0]
+      phi: [-3.14159, 3.14159]
+      z: [-4.0, 2.0]
+
+# Coordinate systems
+coordinate_systems:
+  # Sensor-relative (moves with vehicle)
+  sensor_frame:
+    name: "sensor"
+    description: "LiDAR sensor coordinate frame (ego-vehicle relative)"
+    origin: [0.0, 0.0, 0.0]
+
+  # World-fixed (static global frame)
+  world_frame:
+    name: "world"
+    description: "Global world coordinate frame (static, compensates for vehicle motion)"
+    requires_odometry: true
+
+  # Default coordinate system for visualization
+  default: "sensor"  # Options: "sensor" or "world"
+
+# Semantic segmentation
+segmentation:
+  # SemanticKITTI 20-class to 3-class tactical mapping
+  class_mapping:
+    terrain:
+      label_id: 0
+      color: [34, 197, 94, 190]  # RGBA - Emerald Green
+      semantic_kitti_classes: [0, 9, 10, 11, 12, 15, 17]  # unlabeled, road, parking, sidewalk, other-ground, vegetation, terrain
+
+    static_obstacle:
+      label_id: 1
+      color: [239, 68, 68, 230]  # RGBA - Vibrant Red
+      semantic_kitti_classes: [13, 14, 16, 18, 19]  # building, fence, trunk, pole, traffic-sign
+
+    dynamic_target:
+      label_id: 2
+      color: [251, 191, 36, 240]  # RGBA - Amber Gold
+      semantic_kitti_classes: [1, 2, 3, 4, 5, 6, 7, 8]  # car, bicycle, motorcycle, truck, other-vehicle, person, bicyclist, motorcyclist
+
+  # Temporal smoothing
+  temporal_smoothing:
+    enabled: true
+    history_frames: 10
+    method: "majority_vote"
+
+# Geometry-based heuristics
+geometry_heuristics:
+  # Height-based classification fallbacks
+  height_thresholds:
+    road_max_delta_z: 1.0
+    vehicle_min_delta_z: 1.0
+    vehicle_max_delta_z: 3.5
+    building_min_delta_z: 2.0
+
+  # Elevation rendering
+  elevation_mapping:
+    road_elevation: 0.2
+    min_elevation: 0.12
+    max_elevation: 5.0
+
+# Performance settings
+performance:
+  target_fps: 30
+  inference_device: "cuda"  # Options: "cuda", "cpu"
+  half_precision: false     # FP16 inference
+
+# WebSocket streaming
+streaming:
+  host: "0.0.0.0"
+  port: 8005
+  route: "/ws/stream_map"
+  compression: "json"  # Options: "json", "msgpack", "protobuf"
+
+# Dataset paths (relative to project root)
+dataset:
+  root: "data"
+  sequences_dir: "data/sequences"
+  weights_dir: "weights"
+
+  # KITTI dataset structure
+  kitti:
+    sequence: "00"
+    velodyne_dir: "velodyne"
+    poses_file: "poses.txt"        # 4x4 transformation matrices
+    calib_file: "calib.txt"        # Camera/LiDAR calibration
+    timestamps_file: "times.txt"   # Frame timestamps
+
+# Model configuration
+model:
+  name: "Cylinder3D"
+  checkpoint: "weights/model_load.pth"
+  num_classes: 20
+  input_dims: 9  # [Δρ, Δφ, Δz, ρ, φ, z, x, y, intensity]
+
+# Visualization modes
+visualization:
+  modes:
+    - name: "2.5D Grid (Default)"
+      type: "grid"
+      dimension: "2.5D"
+      description: "Compressed grid cells with elevation"
+
+    - name: "3D Point Cloud"
+      type: "pointcloud"
+      dimension: "3D"
+      description: "Full resolution classified points"
+
+    - name: "Side-by-Side Comparison"
+      type: "comparison"
+      dimension: "both"
+      description: "Compare 3D vs 2.5D representations"
+
+  default_mode: "2.5D Grid (Default)"

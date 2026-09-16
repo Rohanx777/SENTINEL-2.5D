@@ -69,7 +69,7 @@ temp/
 *.cache
 
 # ── Third-party deps (downloaded at build time) ──
-SENTINEL-3D/backend/cpp_cuda/third_party/
+SENTINEL-2.5D/backend/cpp_cuda/third_party/
 libtorch/
 
 # ── Secrets ──

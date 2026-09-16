@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🛡️ SENTINEL-3D
+# 🛡️ SENTINEL-2.5D
 
-### Strategic Environment Navigation & Threat Intelligence Neural Engine for LiDAR – 3D
+### Strategic Environment Navigation & Threat Intelligence Neural Engine for LiDAR – 2.5D
 
 **GPU-Accelerated Real-Time Semantic Segmentation of 3D LiDAR Point Clouds**
 
@@ -25,9 +25,9 @@
 
 ---
 
-## 🎯 What is SENTINEL-3D?
+## 🎯 What is SENTINEL-2.5D?
 
-SENTINEL-3D is a high-performance perception pipeline built for autonomous vehicles and defense surveillance. It takes raw 3D LiDAR scans (120,000+ points per frame) and delivers classified, compressed tactical maps to a real-time browser dashboard at 40 FPS.
+SENTINEL-2.5D is a high-performance perception pipeline built for autonomous vehicles and defense surveillance. It takes raw 3D LiDAR scans (120,000+ points per frame) and delivers classified, compressed tactical maps to a real-time browser dashboard at 40 FPS.
 
 The system compresses Cylinder3D's 20-class SemanticKITTI output into 3 tactical classes:
 
@@ -42,7 +42,7 @@ The system compresses Cylinder3D's 20-class SemanticKITTI output into 3 tactical
 ## 🏗️ Architecture
 
 ```
-                        SENTINEL-3D PERCEPTION PIPELINE
+                        SENTINEL-2.5D PERCEPTION PIPELINE
   ┌─────────────────────────────────────────────────────────────────┐
   │                                                                 │
   │  RAW LiDAR (.bin)     GPU PROCESSING           TACTICAL OUTPUT  │
@@ -140,8 +140,8 @@ The frontend is a real-time WebGL tactical dashboard with:
 ### 1-Click Launch (Windows)
 
 ```cmd
-git clone https://github.com/Rohanx777/SENTINEL-3D.git
-cd SENTINEL-3D
+git clone https://github.com/Rohanx777/SENTINEL-2.5D.git
+cd SENTINEL-2.5D
 start.bat
 ```
 
@@ -157,11 +157,11 @@ This single command:
 
 ```bash
 # Clone
-git clone https://github.com/Rohanx777/SENTINEL-3D.git
-cd SENTINEL-3D
+git clone https://github.com/Rohanx777/SENTINEL-2.5D.git
+cd SENTINEL-2.5D
 
 # Backend: Build C++/CUDA pipeline (one-time)
-cd SENTINEL-3D/backend/cpp_cuda
+cd SENTINEL-2.5D/backend/cpp_cuda
 ./build.sh          # Linux
 build.bat           # Windows
 
@@ -182,10 +182,10 @@ python launch.py
 ## 📂 Project Structure
 
 ```
-SENTINEL-3D/
+SENTINEL-2.5D/
 ├── start.bat                           # 1-click Windows launcher
 │
-├── SENTINEL-3D/
+├── SENTINEL-2.5D/
 │   ├── launch.py                       # Universal cross-platform launcher
 │   ├── sentinel.bat                    # Windows batch orchestrator
 │   ├── start_sentinel.sh              # Linux/macOS shell launcher
@@ -255,7 +255,7 @@ The mock server generates realistic synthetic LiDAR data — perfect for fronten
 ## 🔬 Key Innovations
 
 ### Adaptive Foveated Multi-Resolution Grid
-Unlike uniform grids, SENTINEL-3D uses a polar foveated grid with higher angular resolution near the sensor — matching how real perception systems prioritize nearby obstacles.
+Unlike uniform grids, SENTINEL-2.5D uses a polar foveated grid with higher angular resolution near the sensor — matching how real perception systems prioritize nearby obstacles.
 
 ### 2.5D Volumetric Compression
 Raw point clouds (120K points × 4 floats = 2MB/frame) are compressed into ~800 2D grid cells with height metadata (~20KB JSON). A **99.8% bandwidth reduction** that enables real-time WebSocket streaming.
@@ -275,7 +275,7 @@ Vehicle ego-motion is tracked via KITTI odometry poses, enabling world-fixed coo
 - **No cloud telemetry** — no data leaves the machine
 - **Docker-ready** — NVIDIA Container Toolkit supported
 
-See [Deployment Guide](SENTINEL-3D/docs/DEPLOYMENT.md) for production configuration, network setup, and Docker instructions.
+See [Deployment Guide](SENTINEL-2.5D/docs/DEPLOYMENT.md) for production configuration, network setup, and Docker instructions.
 
 ---
 
@@ -283,9 +283,9 @@ See [Deployment Guide](SENTINEL-3D/docs/DEPLOYMENT.md) for production configurat
 
 | Document | Description |
 |----------|-------------|
-| [Architecture](SENTINEL-3D/docs/ARCHITECTURE.md) | Full data flow & tech stack breakdown |
-| [Deployment](SENTINEL-3D/docs/DEPLOYMENT.md) | Production setup, Docker, network config |
-| [Quick Start](SENTINEL-3D/QUICKSTART.md) | Step-by-step launch instructions |
+| [Architecture](SENTINEL-2.5D/docs/ARCHITECTURE.md) | Full data flow & tech stack breakdown |
+| [Deployment](SENTINEL-2.5D/docs/DEPLOYMENT.md) | Production setup, Docker, network config |
+| [Quick Start](SENTINEL-2.5D/QUICKSTART.md) | Step-by-step launch instructions |
 
 ---
 
@@ -302,6 +302,6 @@ See [Deployment Guide](SENTINEL-3D/docs/DEPLOYMENT.md) for production configurat
 
 **Built with ⚡ CUDA, 🧠 PyTorch, and 🌐 Next.js**
 
-*SENTINEL-3D — See everything. Miss nothing.*
+*SENTINEL-2.5D — See everything. Miss nothing.*
 
 </div>
