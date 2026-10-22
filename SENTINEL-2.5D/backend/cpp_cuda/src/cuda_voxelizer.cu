@@ -39,7 +39,9 @@ __global__ void voxelize_kernel(
     float phi = atan2f(y, x);
     // z remains z
 
-    // ── Clip to bounds ─────────────────────────────────────────────────────────
+    const float rho_raw = rho;
+    const float phi_raw = phi;
+    // Clip indices only; trained features use original cylindrical values.
     rho = fminf(fmaxf(rho, MIN_BOUND_RHO), MAX_BOUND_RHO);
     phi = fminf(fmaxf(phi, MIN_BOUND_PHI), MAX_BOUND_PHI);
     float z_clipped = fminf(fmaxf(z, MIN_BOUND_Z), MAX_BOUND_Z);
@@ -63,17 +65,17 @@ __global__ void voxelize_kernel(
 
     // ── Compute 9D per-point features ─────────────────────────────────────────
     // [Δρ, Δφ, Δz, ρ, φ, z, x_cart, y_cart, intensity]
-    float delta_rho = rho - vox_center_rho;
-    float delta_phi = phi - vox_center_phi;
-    float delta_z   = z_clipped - vox_center_z;
+    float delta_rho = rho_raw - vox_center_rho;
+    float delta_phi = phi_raw - vox_center_phi;
+    float delta_z   = z - vox_center_z;
 
     int fea_base = idx * FEA_DIM;
     pt_fea[fea_base + 0] = delta_rho;
     pt_fea[fea_base + 1] = delta_phi;
     pt_fea[fea_base + 2] = delta_z;
-    pt_fea[fea_base + 3] = rho;
-    pt_fea[fea_base + 4] = phi;
-    pt_fea[fea_base + 5] = z_clipped;
+    pt_fea[fea_base + 3] = rho_raw;
+    pt_fea[fea_base + 4] = phi_raw;
+    pt_fea[fea_base + 5] = z;
     pt_fea[fea_base + 6] = x;
     pt_fea[fea_base + 7] = y;
     pt_fea[fea_base + 8] = intensity;

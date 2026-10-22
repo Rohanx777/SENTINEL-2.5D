@@ -41,7 +41,7 @@ function MetricCard({
 }
 
 const DEFAULT: TelemetryMetrics = {
-    engine: "CPU OPENMP FALLBACK",
+    engine: "WAITING FOR STREAM",
     fps: 0,
     latencyMs: 0,
     memorySavedPct: 0,
@@ -50,17 +50,17 @@ const DEFAULT: TelemetryMetrics = {
 export default function TelemetryPanel({ metrics }: Props) {
     const data = metrics ?? DEFAULT;
 
-    const isCuda = data.engine === "CUDA GPU TIER 1";
+    const isCuda = data.engine === "CYLINDER3D CUDA";
 
     return (
-        <div className="flex flex-col gap-3 h-full">
+        <div className="flex flex-col gap-3">
             {/* Header */}
             <div className="flex items-center justify-between px-1">
                 <h2 className="text-xs font-mono uppercase tracking-[0.25em] text-slate-400">
                     Telemetry
                 </h2>
                 <span className="text-[9px] font-mono text-slate-600 uppercase">
-                    LIVE
+                    MEASURED
                 </span>
             </div>
 
@@ -91,7 +91,7 @@ export default function TelemetryPanel({ metrics }: Props) {
                     <p className="text-[10px] text-slate-500 font-mono">
                         {isCuda
                             ? "Hardware-accelerated inference"
-                            : "Software parallel fallback"}
+                            : "Explicit CPU / demo mode"}
                     </p>
                 </div>
                 {/* Pulsing dot */}
@@ -112,19 +112,19 @@ export default function TelemetryPanel({ metrics }: Props) {
             </div>
 
             {/* Metric cards grid */}
-            <div className="grid grid-cols-2 gap-2 flex-1">
+            <div className="grid grid-cols-2 gap-2">
                 <MetricCard
                     icon={<Gauge className="w-3.5 h-3.5" />}
                     label="FPS"
-                    value={data.fps.toFixed(0)}
+                    value={data.engine === "WAITING FOR STREAM" ? "—" : data.fps.toFixed(1)}
                     sub="frames / second"
                     accent={data.fps >= 25 ? "text-green-400" : data.fps >= 15 ? "text-amber-400" : "text-red-400"}
                 />
                 <MetricCard
                     icon={<Timer className="w-3.5 h-3.5" />}
                     label="Latency"
-                    value={`${data.latencyMs.toFixed(1)}`}
-                    sub="milliseconds"
+                    value={data.engine === "WAITING FOR STREAM" ? "—" : `${data.latencyMs.toFixed(1)}`}
+                    sub="processing milliseconds"
                     accent={data.latencyMs < 50 ? "text-green-400" : data.latencyMs < 100 ? "text-amber-400" : "text-red-400"}
                 />
             </div>
@@ -134,7 +134,7 @@ export default function TelemetryPanel({ metrics }: Props) {
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-slate-400">
                         <MemoryStick className="w-3.5 h-3.5 text-cyan-500/80" />
-                        Memory Saved
+                        Grid byte reduction
                     </div>
                     <span className="text-sm font-mono font-bold text-cyan-300">
                         {data.memorySavedPct.toFixed(1)}%
@@ -143,19 +143,19 @@ export default function TelemetryPanel({ metrics }: Props) {
                 <div className="relative h-2 w-full rounded-full bg-white/5 overflow-hidden">
                     <div
                         className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500 ease-out"
-                        style={{ width: `${Math.min(100, data.memorySavedPct)}%` }}
+                        style={{ width: `${Math.max(0, Math.min(100, data.memorySavedPct))}%` }}
                     />
                     {/* Shimmer */}
                     <div
                         className="absolute top-0 h-full w-12 bg-gradient-to-r from-transparent via-white/30 to-transparent rounded-full"
                         style={{
-                            left: `calc(${Math.min(100, data.memorySavedPct)}% - 24px)`,
+                            left: `calc(${Math.max(0, Math.min(100, data.memorySavedPct))}% - 24px)`,
                             transition: "left 0.5s ease-out",
                         }}
                     />
                 </div>
                 <p className="text-[10px] text-slate-600 font-mono mt-1.5">
-                    vs. full-resolution baseline
+                    JSON grid vs. raw float32 scan; preview overhead excluded
                 </p>
             </div>
         </div>
