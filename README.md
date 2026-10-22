@@ -19,9 +19,9 @@
 
 > **Prototype / performance status:** the headline timings and benchmark table have not been reproduced as part of this repository review. The included comparison script projects C++/CUDA timings; raw hardware run logs are not included. See the performance section before citing these figures.
 
-*A defense-grade LiDAR perception system that processes raw Velodyne point clouds through GPU-accelerated CUDA kernels, performs semantic segmentation via Cylinder3D neural inference, and streams compressed tactical data to a real-time WebGL dashboard — all in under 25 milliseconds.*
+*A LiDAR perception prototype combining CUDA processing, Cylinder3D-based semantic segmentation, compressed 2.5D grids and a real-time WebGL dashboard. Headline performance figures are project-reported and need reproduction.*
 
-[Quick Start](#-quick-start) · [Architecture](#-architecture) · [Performance](#-performance-benchmarks) · [Dashboard](#-tactical-dashboard) · [Deployment](#-deployment)
+[Quick Start](#-quick-start) · [Architecture](#-architecture) · [Performance](#performance) · [Dashboard](#-tactical-dashboard) · [Deployment](#-deployment)
 
 </div>
 
@@ -87,6 +87,8 @@ The system compresses Cylinder3D's 20-class SemanticKITTI output into 3 tactical
 | **Charts** | Recharts | Telemetry & performance visualization |
 
 ---
+
+<a id="performance"></a>
 
 ## 📊 Reported Performance — Reproduction Pending
 
@@ -292,6 +294,11 @@ See [Deployment Guide](SENTINEL-2.5D/docs/DEPLOYMENT.md) for production configur
 | [Quick Start](SENTINEL-2.5D/QUICKSTART.md) | Step-by-step launch instructions |
 
 ---
+
+## Project contributions
+
+- **Implementation — Rohan ([Rohanx777](https://github.com/Rohanx777)):** complete project implementation, including the Python and C++/CUDA backends, 2.5D grid processing, WebSocket integration and Next.js/WebGL dashboard.
+- **Research — a collaborating friend:** research contribution supporting the project. The implementation and research roles are credited separately.
 
 ## 🙏 Acknowledgments
 
