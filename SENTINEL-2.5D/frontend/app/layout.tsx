@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SENTINEL-2.5D — Defense Tactical Perception System",
+  title: "SENTINEL-2.5D — LiDAR Perception Prototype",
   description:
-    "Real-time 3D LiDAR perception and threat intelligence system for defense applications · DRDO · CUDA accelerated · 25ms latency.",
-  keywords: ["LiDAR", "3D", "perception", "tactical", "defense", "SENTINEL", "DRDO", "threat detection"],
+    "CUDA C++ point processing, neural segmentation and distance-adaptive LiDAR visualisation with measured performance.",
+  keywords: ["LiDAR", "3D", "perception", "tactical", "defense", "SENTINEL", "Research Prototype", "threat detection"],
 };
 
 export default function RootLayout({

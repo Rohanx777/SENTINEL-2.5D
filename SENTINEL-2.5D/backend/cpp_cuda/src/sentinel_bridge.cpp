@@ -40,7 +40,7 @@ struct Config {
     std::string scan_dir = "data/sequences/00/velodyne";
     std::string model_path = "weights/model_load.pt";  // TorchScript model
     std::string host = "0.0.0.0";
-    int port = 8000;
+    int port = 8005;
     std::string route = "/ws/stream_map";
     int target_fps = 30;
     int start_frame = 1350;  // Match Python: start at busy intersection
@@ -229,6 +229,7 @@ int main(int argc, char** argv) {
     // Allow overriding paths via CLI
     if (argc > 1) config.scan_dir = argv[1];
     if (argc > 2) config.model_path = argv[2];
+    if (argc > 3) config.port = std::stoi(argv[3]);
 
     try {
         // 1. Check CUDA device

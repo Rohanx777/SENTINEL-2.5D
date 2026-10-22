@@ -1,352 +1,57 @@
-// app/page.tsx
 "use client";
-
-import React, { useState } from "react";
+import React,{useState} from "react";
 import dynamic from "next/dynamic";
-import {
-    Shield,
-    Radio,
-    Crosshair,
-    Layers,
-    Compass,
-    Grid,
-    Box,
-    Scale,
-    Activity,
-    Sliders,
-    Zap,
-    Gauge,
-} from "lucide-react";
+import {Radar,Layers,Box,Columns2,Activity,ChevronRight,Radio} from "lucide-react";
+import {useLidarStream} from "./hooks/useLidarStream";
 import TelemetryPanel from "./components/TelemetryPanel";
-import ThreatTicker from "./components/ThreatTicker";
 import ComparativeStudyModal from "./components/ComparativeStudyModal";
 import FoveatedStratifiedModal from "./components/FoveatedStratifiedModal";
-import { useLidarStream } from "./hooks/useLidarStream";
-import type { GridType, VisualizationMode, CoordinateFrame } from "./components/DeckCanvas2D";
+import type {VisualizationMode} from "./components/DeckCanvas2D";
+const Canvas=dynamic(()=>import("./components/DeckCanvas2D"),{ssr:false,loading:()=>
+    <div className="grid h-full place-items-center text-cyan-400">Initialising scene renderer…</div>});
 
-// Dynamically import DeckGL canvas — SSR incompatible (WebGL)
-const DeckCanvas2D = dynamic(() => import("./components/DeckCanvas2D"), {
-    ssr: false,
-    loading: () => (
-        <div className="w-full h-full flex items-center justify-center bg-[#030712]">
-            <div className="flex flex-col items-center gap-4">
-                <div className="relative w-16 h-16">
-                    <div className="absolute inset-0 rounded-full border-2 border-cyan-500/30 animate-ping" />
-                    <div
-                        className="absolute inset-2 rounded-full border-2 border-cyan-400/60 animate-spin"
-                        style={{ animationDuration: "1s" }}
-                    />
-                    <Crosshair className="absolute inset-0 m-auto w-6 h-6 text-cyan-400" />
+export default function Dashboard(){
+    const stream=useLidarStream();
+    const [mode,setMode]=useState<VisualizationMode>("grid_25d");
+    const [study,setStudy]=useState(false);const [zones,setZones]=useState(false);
+    const counts=stream.cells.reduce<Record<string,number>>((a,c)=>{a[c.label]=(a[c.label]||0)+1;return a;},{});
+    const status=stream.connected?stream.telemetry.engine:"WAITING FOR STREAM";
+    return <main className="flex h-screen flex-col overflow-hidden bg-[#0b121b] text-slate-200">
+        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#111c29] px-5 py-4">
+            <div className="flex items-center gap-3"><div className="rounded-xl border border-cyan-400/25 bg-cyan-400/10 p-2.5"><Radar className="h-6 w-6 text-cyan-300"/></div>
+                <div><h1 className="text-lg font-semibold tracking-[.18em] text-white">SENTINEL <span className="text-cyan-300">2.5D</span></h1>
+                    <p className="mt-1 text-[10px] uppercase tracking-[.16em] text-slate-500">LiDAR scene explorer · Research prototype</p></div></div>
+            <div className="text-right"><div className="flex items-center justify-end gap-2 text-xs font-mono"><span className={`h-2 w-2 rounded-full ${stream.connected?'bg-emerald-400':'bg-amber-400'}`}/>{status}</div>
+                <p className="mt-1 text-[10px] text-slate-500">Sensor coordinates · {stream.telemetry.mode || 'Awaiting data'}</p></div>
+        </header>
+        <nav className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/5 px-5 py-3">
+            <div className="flex gap-1 rounded-lg bg-white/[.04] p-1">{[
+                ['grid_25d','2.5D grid',Layers],['pointcloud_3d','3D preview',Box],['split_comparison','Compare',Columns2],
+            ].map(([value,label,Icon])=>{const I=Icon as typeof Layers;return <button key={String(value)} onClick={()=>setMode(value as VisualizationMode)} className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs ${mode===value?'bg-cyan-300/15 text-cyan-200':'text-slate-400 hover:text-white'}`}><I className="h-3.5 w-3.5"/>{String(label)}</button>;})}</div>
+            <div className="flex items-center gap-2 text-xs"><span className="text-slate-500">Frame stride</span>{[1,2,4,8].map(speed=><button key={speed} onClick={()=>stream.setPlaybackSpeed(speed)} className={`rounded-md border px-2.5 py-1.5 font-mono ${stream.playbackSpeed===speed?'border-cyan-400/40 bg-cyan-400/10 text-cyan-200':'border-white/10 text-slate-400'}`}>{speed}×</button>)}</div>
+        </nav>
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+            <section className="relative min-h-[320px] min-w-0 flex-1 overflow-hidden">
+                <Canvas cells={stream.cells} linearCells={stream.linearCells} pointCloud3D={stream.pointCloud3D} egoVehicle={stream.egoVehicle}
+                    threats={[]} gridType="polar" visMode={mode} coordinateFrame="sensor"/>
+                {!stream.connected&&<div className="absolute inset-0 grid place-items-center bg-[#0b121b]/70"><div className="rounded-2xl border border-white/10 bg-[#111c29] p-6 text-center"><Radio className="mx-auto mb-3 h-7 w-7 text-cyan-300"/><p className="text-sm text-white">Waiting for perception stream</p><p className="mt-2 text-xs text-slate-400">Start SENTINEL in demo, replay, or ML mode.</p></div></div>}
+                <div className="absolute bottom-4 left-4 flex flex-wrap gap-3 rounded-xl border border-white/10 bg-[#111c29]/95 px-4 py-3 text-[10px] text-slate-300">
+                    <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#5ba38f]"/>Terrain</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#d3937e]"/>Static</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#e1bc6b]"/>Vehicle / person class</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-[#a797d1]"/>Geometry annotation</span>
                 </div>
-                <p className="text-cyan-500/60 text-xs font-mono uppercase tracking-widest">
-                    Loading Perception Engine…
-                </p>
-            </div>
+            </section>
+            <aside className="max-h-[38vh] w-full shrink-0 overflow-y-auto border-l border-white/10 bg-[#111c29] p-4 lg:max-h-none lg:w-80">
+                <TelemetryPanel metrics={stream.connected?stream.telemetry:null}/>
+                <div className="mt-4 rounded-xl border border-white/10 p-4"><p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-slate-400"><Activity className="h-3.5 w-3.5"/>Scene summary</p>
+                    {['road','static_obstacle','dynamic_target','negative_obstacle','curb'].map(label=><div key={label} className="flex justify-between py-1.5 text-xs"><span className="text-slate-400">{label.replaceAll('_',' ')}</span><span className="font-mono text-white">{counts[label]||0} cells</span></div>)}
+                    <p className="mt-3 border-t border-white/5 pt-3 text-[10px] leading-5 text-slate-500">Vehicle/person semantics do not establish motion or hostility. Terrain annotations use geometric thresholds.</p>
+                </div>
+                <div className="mt-4 rounded-xl border border-white/10 p-4 text-xs"><p className="text-slate-400">Total transmitted frame</p><p className="mt-2 font-mono text-lg text-cyan-200">{stream.connected&&stream.telemetry.payloadBytes?`${(stream.telemetry.payloadBytes/1024).toFixed(1)} KiB`:'—'}</p><p className="mt-1 text-[10px] text-slate-500">Includes preview, grid and metadata</p></div>
+                <button onClick={()=>setStudy(true)} className="mt-4 flex w-full items-center justify-between rounded-xl border border-white/10 p-3 text-xs text-slate-300">Representation sizes<ChevronRight className="h-4 w-4"/></button>
+                <button onClick={()=>setZones(true)} className="mt-2 flex w-full items-center justify-between rounded-xl border border-white/10 p-3 text-xs text-slate-300">Grid resolution and link estimates<ChevronRight className="h-4 w-4"/></button>
+            </aside>
         </div>
-    ),
-});
-
-export default function SentinelDashboard() {
-    const {
-        connected,
-        playbackSpeed,
-        setPlaybackSpeed,
-        cells,
-        polarCells,
-        linearCells,
-        pointCloud3D,
-        comparativeStudy,
-        stratifiedMetrics,
-        egoVehicle,
-        telemetry,
-        threats,
-    } = useLidarStream();
-
-    // UI Configuration & Control State
-    const [gridType, setGridType] = useState<GridType>("polar");
-    const [visMode, setVisMode] = useState<VisualizationMode>("grid_25d");
-    const [coordinateFrame, setCoordinateFrame] = useState<CoordinateFrame>("sensor");
-    const [isStudyOpen, setIsStudyOpen] = useState(false);
-    const [isFoveatedModalOpen, setIsFoveatedModalOpen] = useState(false);
-
-    const activeDisplayCells = gridType === "linear" && linearCells.length > 0 ? linearCells : (polarCells.length > 0 ? polarCells : cells);
-
-    return (
-        <div className="h-screen w-screen bg-[#030712] text-white flex flex-col overflow-hidden font-mono">
-            {/* ── Top Navigation Bar ─────────────────────────────────────────── */}
-            <header className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-white/5 bg-[#050d1a]/80 backdrop-blur-md z-20">
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Shield className="w-7 h-7 text-cyan-400" />
-                        <div className="absolute inset-0 bg-cyan-400/20 blur-md rounded-full animate-pulse" />
-                    </div>
-                    <div>
-                        <h1 className="text-sm font-bold tracking-[0.3em] uppercase text-white">
-                            SENTINEL<span className="text-cyan-400">-2.5D</span>
-                        </h1>
-                        <p className="text-[9px] text-slate-500 tracking-widest uppercase">
-                            Defense Tactical Perception · DRDO
-                        </p>
-                    </div>
-                </div>
-
-                {/* Tactical Control Bar */}
-                <div className="hidden lg:flex items-center gap-2 bg-[#08152b] p-1 rounded-xl border border-white/10">
-                    {/* Playback Speed Multiplier (1x, 2x, 4x, 8x Turbo) */}
-                    <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
-                        <span className="text-[9px] text-slate-500 px-1.5 flex items-center gap-1 font-bold">
-                            <Zap className="w-2.5 h-2.5 text-amber-400" />
-                            SPEED:
-                        </span>
-                        {[
-                            { val: 1.0, label: "1x" },
-                            { val: 2.0, label: "2x" },
-                            { val: 4.0, label: "4x" },
-                            { val: 8.0, label: "8x ⚡" },
-                        ].map((s) => (
-                            <button
-                                key={s.val}
-                                onClick={() => setPlaybackSpeed(s.val)}
-                                className={`px-2 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${
-                                    playbackSpeed === s.val
-                                        ? "bg-amber-500/25 text-amber-300 border border-amber-500/50 shadow-sm"
-                                        : "text-slate-400 hover:text-white"
-                                }`}
-                            >
-                                {s.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Grid Type Selector (Polar vs Linear) */}
-                    <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
-                        <button
-                            onClick={() => setGridType("polar")}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${
-                                gridType === "polar"
-                                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            <Compass className="w-3 h-3" />
-                            FOVEATED POLAR
-                        </button>
-                        <button
-                            onClick={() => setGridType("linear")}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${
-                                gridType === "linear"
-                                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            <Grid className="w-3 h-3" />
-                            LINEAR GRID
-                        </button>
-                    </div>
-
-                    {/* Mode Selector (2.5D vs 3D vs Comparison) */}
-                    <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
-                        <button
-                            onClick={() => setVisMode("grid_25d")}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${
-                                visMode === "grid_25d"
-                                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            <Layers className="w-3 h-3" />
-                            2.5D GRID
-                        </button>
-                        <button
-                            onClick={() => setVisMode("pointcloud_3d")}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${
-                                visMode === "pointcloud_3d"
-                                    ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            <Box className="w-3 h-3" />
-                            3D POINTS
-                        </button>
-                        <button
-                            onClick={() => setVisMode("split_comparison")}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${
-                                visMode === "split_comparison"
-                                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            <Scale className="w-3 h-3" />
-                            SPLIT VIEW
-                        </button>
-                    </div>
-
-                    {/* Coordinate Frame (Sensor vs World Motion Compensation) */}
-                    <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
-                        <button
-                            onClick={() => setCoordinateFrame("sensor")}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${
-                                coordinateFrame === "sensor"
-                                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            SENSOR FRAME
-                        </button>
-                        <button
-                            onClick={() => setCoordinateFrame("world")}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-wider transition-colors ${
-                                coordinateFrame === "world"
-                                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                                    : "text-slate-400 hover:text-white"
-                            }`}
-                        >
-                            WORLD (TRACKED)
-                        </button>
-                    </div>
-
-                    {/* Foveated Stratified Metrics Modal Trigger */}
-                    <button
-                        onClick={() => setIsFoveatedModalOpen(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-purple-500/20 to-indigo-500/20 hover:from-purple-500/30 hover:to-indigo-500/30 text-purple-300 border border-purple-500/40 transition-all shadow-lg"
-                    >
-                        <Compass className="w-3.5 h-3.5 text-purple-400" />
-                        Foveated Zones & Radio
-                    </button>
-
-                    {/* 3D vs 2.5D Study Modal Trigger */}
-                    <button
-                        onClick={() => setIsStudyOpen(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500/20 to-blue-500/20 hover:from-cyan-500/30 hover:to-blue-500/30 text-cyan-300 border border-cyan-500/40 transition-all shadow-lg"
-                    >
-                        <Scale className="w-3.5 h-3.5 text-cyan-400" />
-                        3D vs 2.5D Study
-                    </button>
-                </div>
-
-                {/* Status indicators */}
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <span className="relative flex h-2 w-2">
-                            <span
-                                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                                    connected ? "bg-emerald-400" : "bg-red-400"
-                                }`}
-                            />
-                            <span
-                                className={`relative inline-flex rounded-full h-2 w-2 ${
-                                    connected ? "bg-emerald-500" : "bg-red-500"
-                                }`}
-                            />
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-400">
-                            {connected ? "STREAM ACTIVE" : "DISCONNECTED"}
-                        </span>
-                    </div>
-
-                    <div className="hidden sm:flex items-center gap-1 bg-cyan-950/40 border border-cyan-500/30 rounded px-2 py-0.5 text-[9px] text-cyan-300 font-mono">
-                        <Radio className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
-                        <span>TACTICAL LINK ACTIVE</span>
-                    </div>
-                </div>
-            </header>
-
-            {/* ── Main Content ───────────────────────────────────────────────── */}
-            <div className="flex flex-1 overflow-hidden">
-                {/* ── Left: Deck.gl Canvas (70%) ──────────────────────────────── */}
-                <div className="relative flex-[7] min-w-0 overflow-hidden border-r border-white/5">
-                    {/* Corner brackets */}
-                    {(["top-2 left-2", "top-2 right-2", "bottom-2 left-2", "bottom-2 right-2"] as const).map(
-                        (pos) => (
-                            <div
-                                key={pos}
-                                className={`absolute ${pos} w-5 h-5 border-cyan-500/40 pointer-events-none z-10`}
-                                style={{
-                                    borderTopWidth: pos.startsWith("top") ? 1 : 0,
-                                    borderBottomWidth: pos.startsWith("bottom") ? 1 : 0,
-                                    borderLeftWidth: pos.endsWith("left-2") ? 1 : 0,
-                                    borderRightWidth: pos.endsWith("right-2") ? 1 : 0,
-                                }}
-                            />
-                        )
-                    )}
-
-                    {/* Canvas label */}
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                        <span className="text-[9px] font-mono uppercase tracking-[0.35em] text-slate-400 bg-[#030712]/90 px-3 py-1 rounded-full border border-white/10 shadow-lg">
-                            {gridType === "polar" ? "Foveated Multi-Resolution Polar Grid" : "Linear Cartesian Grid"} · {visMode === "grid_25d" ? "2.5D Volumetric" : visMode === "pointcloud_3d" ? "3D Point Cloud" : "3D/2.5D Split Comparison"}
-                        </span>
-                    </div>
-
-                    {/* Frame & Compression metrics */}
-                    {telemetry && (
-                        <div className="absolute top-3 right-4 z-10 text-[9px] font-mono text-slate-400 bg-[#030712]/80 px-2.5 py-1 rounded border border-white/5 flex items-center gap-2 pointer-events-none">
-                            <span>{activeDisplayCells.length.toLocaleString()} cells</span>
-                            <span>·</span>
-                            <span className="text-cyan-400">{telemetry.latencyMs.toFixed(1)} ms</span>
-                            <span>·</span>
-                            <span className="text-emerald-400">{telemetry.memorySavedPct.toFixed(1)}% Saved</span>
-                        </div>
-                    )}
-
-                    <DeckCanvas2D
-                        cells={polarCells.length > 0 ? polarCells : cells}
-                        linearCells={linearCells}
-                        pointCloud3D={pointCloud3D}
-                        threats={threats}
-                        egoVehicle={egoVehicle}
-                        gridType={gridType}
-                        visMode={visMode}
-                        coordinateFrame={coordinateFrame}
-                    />
-                </div>
-
-                {/* ── Right: Sidebar (30%) ────────────────────────────────────── */}
-                <div className="flex-[3] min-w-0 flex flex-col gap-4 overflow-hidden p-4 bg-[#050d1a]/60">
-                    {/* Telemetry Panel */}
-                    <div className="flex-[4] min-h-0 overflow-hidden">
-                        <TelemetryPanel metrics={telemetry} />
-                    </div>
-
-                    {/* Divider */}
-                    <div className="flex-shrink-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-                    {/* Threat Ticker */}
-                    <div className="flex-[5] min-h-0 overflow-hidden">
-                        <ThreatTicker
-                            cells={activeDisplayCells}
-                            backendThreats={threats}
-                            maxEvents={50}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Footer ──────────────────────────────────────────────────────── */}
-            <footer className="flex-shrink-0 flex items-center justify-between px-6 py-1.5 border-t border-white/5 bg-[#050d1a]/80 text-[9px] text-slate-600">
-                <span className="uppercase tracking-widest">
-                    SENTINEL-2.5D v2.0 · DRDO · Tactical Motion-Compensated Foveated LiDAR Perception
-                </span>
-                <div className="flex items-center gap-4">
-                    <span>Frame: {egoVehicle?.frame_id ?? 0}</span>
-                    <span>Speed: {egoVehicle?.speed_kmh.toFixed(1) ?? "36.0"} km/h ({playbackSpeed}x)</span>
-                    <span>ws://127.0.0.1:8005/ws/stream_map</span>
-                </div>
-            </footer>
-
-            {/* ── Foveated Stratified & Tactical Radio Modal ─────────────────── */}
-            <FoveatedStratifiedModal
-                isOpen={isFoveatedModalOpen}
-                onClose={() => setIsFoveatedModalOpen(false)}
-                data={stratifiedMetrics}
-            />
-
-            {/* ── 3D vs 2.5D Comparative Study Modal ───────────────────────── */}
-            <ComparativeStudyModal
-                isOpen={isStudyOpen}
-                onClose={() => setIsStudyOpen(false)}
-                data={comparativeStudy}
-            />
-        </div>
-    );
+        <footer className="flex shrink-0 justify-between border-t border-white/5 px-5 py-2 text-[10px] text-slate-500"><span>Measured processing metrics · CPU/CUDA method shown explicitly</span><span>Development build · Sensor frame</span></footer>
+        <ComparativeStudyModal isOpen={study} onClose={()=>setStudy(false)} data={stream.comparativeStudy}/>
+        <FoveatedStratifiedModal isOpen={zones} onClose={()=>setZones(false)} data={stream.stratifiedMetrics}/>
+    </main>;
 }

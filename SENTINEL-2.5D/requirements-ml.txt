@@ -1,0 +1,4 @@
+-r requirements.txt
+# Install a CUDA-compatible PyTorch wheel first; tested with torch 2.5.1+cu121.
+torch>=2.5,<2.6
+spconv-cu121>=2.3,<2.4

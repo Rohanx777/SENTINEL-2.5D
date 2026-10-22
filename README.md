@@ -1,318 +1,75 @@
-<div align="center">
+# SENTINEL 2.5D
 
-# 🛡️ SENTINEL-2.5D
+**LiDAR perception, compact height grids and interactive visualization.**
 
-### Strategic Environment Navigation & Threat Intelligence Neural Engine for LiDAR – 2.5D
+I implemented the project across Python and CUDA C++ backends, model integration, WebSocket streaming and the Next.js / Deck.gl dashboard. A friend contributed the research. The segmentation model builds on the attributed **Cylinder3D** work.
 
-**GPU-Accelerated Real-Time Semantic Segmentation of 3D LiDAR Point Clouds**
+[Watch the 60-second walkthrough](docs/media/sentinel-walkthrough.mp4) Â· [Run the demo](#run-the-demo) Â· [Implementation case study](docs/PORTFOLIO.md)
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![CUDA](https://img.shields.io/badge/CUDA-12.1+-76B900?style=for-the-badge&logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
-[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![C++](https://img.shields.io/badge/C++-17-00599C?style=for-the-badge&logo=cplusplus&logoColor=white)](https://isocpp.org)
-[![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)]()
+![SENTINEL comparing a height grid and sampled point cloud](docs/images/compare.png)
 
----
+*Actual dashboard capture using synthetic fixture data in CPU demo mode. Displayed timing is not a trained-model benchmark.*
 
-**Project-reported targets:** 25 ms latency · 40 FPS throughput · 120K+ points/frame
+## What I built
 
-> **Prototype / performance status:** the headline timings and benchmark table have not been reproduced as part of this repository review. The included comparison script projects C++/CUDA timings; raw hardware run logs are not included. See the performance section before citing these figures.
+- **Perception integration:** validated float32 scan ingestion, pretrained-model integration, and CUDA C++ preprocessing / aggregation with Python orchestration.
+- **Compact representation:** polar height grids with distance-dependent resolution, per-cell height ranges and semantic labels.
+- **Streaming backend:** explicit demo, geometric replay and ML modes; measured UTF-8 payload sizes; bounded sends and slow-client handling.
+- **Interactive dashboard:** grid, point-cloud and comparison views, perspective / top cameras, frame-stride control and measured telemetry.
 
-*A LiDAR perception prototype combining CUDA processing, Cylinder3D-based semantic segmentation, compressed 2.5D grids and a real-time WebGL dashboard. Headline performance figures are project-reported and need reproduction.*
+![Short synthetic dashboard demonstration](docs/media/sentinel-demo.gif)
 
-[Quick Start](#-quick-start) · [Architecture](#-architecture) · [Performance](#performance) · [Dashboard](#-tactical-dashboard) · [Deployment](#-deployment)
+## Run the demo
 
-</div>
+Requires Python 3.10+ and a Node.js version compatible with the locked Next.js dependency. **Demo mode needs no GPU, dataset or model weights.**
 
----
+From the repository root:
 
-## 🎯 What is SENTINEL-2.5D?
-
-SENTINEL-2.5D is a high-performance perception pipeline built for autonomous vehicles and defense surveillance. It takes raw 3D LiDAR scans (120,000+ points per frame) and delivers classified, compressed tactical maps to a real-time browser dashboard at 40 FPS.
-
-The system compresses Cylinder3D's 20-class SemanticKITTI output into 3 tactical classes:
-
-| Class | Color | Description | Examples |
-|-------|-------|-------------|----------|
-| 🟢 **Terrain** | Emerald | Safe traversable zones | Road, sidewalk, vegetation |
-| 🔴 **Static Obstacle** | Red | Fixed structures | Buildings, fences, poles |
-| 🟡 **Dynamic Threat** | Amber | Moving entities | Vehicles, pedestrians, cyclists |
-
----
-
-## 🏗️ Architecture
-
-```
-                        SENTINEL-2.5D PERCEPTION PIPELINE
-  ┌─────────────────────────────────────────────────────────────────┐
-  │                                                                 │
-  │  RAW LiDAR (.bin)     GPU PROCESSING           TACTICAL OUTPUT  │
-  │  ┌──────────────┐    ┌───────────────┐    ┌──────────────────┐  │
-  │  │ Velodyne Scan │───▶│ CUDA Voxelizer│───▶│ 2.5D Compressed  │  │
-  │  │ 120K points   │1ms│ Cylindrical   │    │ Grid (~800 cells)│  │
-  │  │ (x, y, z, i) │    └───────────────┘    └──────────────────┘  │
-  │  └──────────────┘           │                      │            │
-  │                             │ 20ms                 │            │
-  │                    ┌────────▼────────┐             │            │
-  │                    │   Cylinder3D    │             │ 0.5ms      │
-  │                    │   Neural Net    │             │            │
-  │                    │   (LibTorch)    │    ┌────────▼─────────┐  │
-  │                    └────────┬────────┘    │    WebSocket     │  │
-  │                             │ 2ms         │    Streaming     │  │
-  │                    ┌────────▼────────┐    │    (JSON)        │  │
-  │                    │ CUDA Grid       │───▶│                  │  │
-  │                    │ Builder +       │    └────────┬─────────┘  │
-  │                    │ Temporal Vote   │             │            │
-  │                    └─────────────────┘             │            │
-  │                                          ┌────────▼─────────┐  │
-  │                                          │ Tactical WebGL   │  │
-  │                                          │ Dashboard        │  │
-  │                                          │ (Next.js+Deck.gl)│  │
-  │                                          └──────────────────┘  │
-  └─────────────────────────────────────────────────────────────────┘
-                    Total: ~25ms end-to-end
-```
-
-### Tech Stack
-
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **GPU Kernels** | CUDA 12.1 | Cylindrical voxelization, grid compression |
-| **Neural Inference** | LibTorch / PyTorch | Cylinder3D sparse convolution (spconv 2.x) |
-| **Backend Server** | C++17 / uWebSockets | Sub-ms WebSocket streaming |
-| **Frontend** | Next.js 16 + TypeScript | Tactical dashboard framework |
-| **3D Rendering** | Deck.gl (WebGL) | Real-time point cloud & grid visualization |
-| **Styling** | Tailwind CSS | Military-grade dark UI |
-| **Charts** | Recharts | Telemetry & performance visualization |
-
----
-
-<a id="performance"></a>
-
-## 📊 Reported Performance — Reproduction Pending
-
-The original project documentation reports the following figures for **NVIDIA RTX 4090** and **SemanticKITTI Sequence 00** (120,543 average points/frame). Raw run logs are not included in this repository, so these figures need reproduction before they can be treated as verified benchmarks.
-
-The included `scripts/benchmark_comparison.py` measures the Python path on synthetic scans and **projects** C++/CUDA stage timings; it does not measure the complete C++/CUDA pipeline. A hardware run with recorded commands, model checkpoint, dataset, warm-up and repeated timings is still needed.
-
-| Metric | C++/CUDA | Python Baseline | Speedup |
-|--------|----------|-----------------|---------|
-| **Total Latency** | 24.3 ms | 297.4 ms | **12.2×** |
-| **Throughput** | 41.2 FPS | 3.4 FPS | **12.1×** |
-| **Bandwidth Saved** | 99.8% | 99.5% | — |
-| **GPU Utilization** | 78% | 45% | +73% |
-
-### Latency Breakdown (C++/CUDA Pipeline)
-
-```
-Voxelization ██░░░░░░░░░░░░░░░░░░   1.1 ms  ( 5%)
-Inference    ████████████████░░░░  19.8 ms  (81%)
-Grid Build   ██░░░░░░░░░░░░░░░░░░   2.1 ms  ( 9%)
-Serialize    █░░░░░░░░░░░░░░░░░░░   0.6 ms  ( 2%)
-WebSocket    █░░░░░░░░░░░░░░░░░░░   0.7 ms  ( 3%)
-─────────────────────────────────────────────────
-Total                              24.3 ms (100%)
-```
-
----
-
-## 🖥️ Tactical Dashboard
-
-The frontend is a real-time WebGL tactical dashboard with:
-
-- **Foveated Polar Grid** — Adaptive resolution that increases near the sensor (where detail matters most)
-- **3D Point Cloud Overlay** — Full-resolution classified point cloud rendering
-- **Split View Comparison** — Side-by-side 3D vs 2.5D analysis
-- **Motion-Compensated World Frame** — Ego-motion tracking via KITTI odometry
-- **Real-Time Telemetry** — FPS, latency, GPU usage, compression metrics
-- **Threat Ticker** — Live feed of detected dynamic obstacles with coordinates
-- **Playback Speed Control** — 1×, 2×, 4×, 8× turbo modes
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-| Requirement | Version |
-|-------------|---------|
-| **GPU** | NVIDIA RTX 3060+ / Tesla T4+ (8GB+ VRAM) |
-| **CUDA Toolkit** | 12.1+ |
-| **Python** | 3.10+ |
-| **Node.js** | 18+ |
-| **OS** | Windows 10/11 or Ubuntu 20.04+ |
-
-### 1-Click Launch (Windows)
-
-```cmd
-git clone https://github.com/Rohanx777/SENTINEL-2.5D.git
-cd SENTINEL-2.5D
-start.bat
-```
-
-This single command:
-- ✅ Auto-detects the best backend (C++/CUDA → Python → Mock)
-- ✅ Installs frontend dependencies if missing
-- ✅ Starts the backend perception engine (port 8005)
-- ✅ Starts the Next.js tactical dashboard (port 3000)
-- ✅ Opens the browser automatically
-- ✅ Handles graceful multi-process shutdown with Ctrl+C
-
-### Manual Setup
-
-```bash
-# Clone
-git clone https://github.com/Rohanx777/SENTINEL-2.5D.git
-cd SENTINEL-2.5D
-
-# Backend: Build C++/CUDA pipeline (one-time)
-cd SENTINEL-2.5D/backend/cpp_cuda
-./build.sh          # Linux
-build.bat           # Windows
-
-# Frontend: Install dependencies (one-time)
-cd ../../frontend
-npm install
-
-# Launch everything
+```powershell
+python -m pip install -r SENTINEL-2.5D/requirements.txt
+cd SENTINEL-2.5D/frontend
+npm ci
 cd ..
-python launch.py
+python launch.py --mode demo
 ```
 
-**Dashboard** → [http://localhost:3000](http://localhost:3000)
-**WebSocket** → `ws://localhost:8005/ws/stream_map`
+Open the address printed by the launcher, normally **http://127.0.0.1:3000**. The launcher starts owned services and does not install packages or download assets.
 
----
+Demo labels are synthetic fixtures. Replay uses a geometric baseline. ML mode requires separately provisioned compatible weights, scans and dependencies; it fails explicitly instead of silently switching to a demo.
 
-## 📂 Project Structure
+## Measurement evidence
 
-```
-SENTINEL-2.5D/
-├── start.bat                           # 1-click Windows launcher
-│
-├── SENTINEL-2.5D/
-│   ├── launch.py                       # Universal cross-platform launcher
-│   ├── sentinel.bat                    # Windows batch orchestrator
-│   ├── start_sentinel.sh              # Linux/macOS shell launcher
-│   │
-│   ├── backend/
-│   │   ├── cpp_cuda/                   # ⚡ High-performance C++/CUDA backend
-│   │   │   ├── src/
-│   │   │   │   ├── sentinel_bridge.cpp # Main pipeline orchestrator (25ms)
-│   │   │   │   ├── cuda_voxelizer.cu   # GPU cylindrical voxelization (~1ms)
-│   │   │   │   ├── cuda_grid_builder.cu# GPU 2.5D grid compression (~2ms)
-│   │   │   │   ├── inference_engine.cpp# LibTorch neural inference (~20ms)
-│   │   │   │   └── websocket_server.cpp# Low-latency WS streaming
-│   │   │   ├── include/                # CUDA/C++ headers
-│   │   │   └── CMakeLists.txt          # CMake build config
-│   │   │
-│   │   ├── python_legacy/              # 🐍 Python reference implementation
-│   │   │   ├── sentinel_bridge.py      # Original server (300ms baseline)
-│   │   │   ├── cylinder3d_net.py       # Neural network definition
-│   │   │   └── dl_inference.py         # ROS 2 inference node
-│   │   │
-│   │   └── config/
-│   │       └── sensor_config.yaml      # Sensor, grid & model configuration
-│   │
-│   ├── frontend/                       # 🌐 Tactical WebGL dashboard
-│   │   ├── app/
-│   │   │   ├── page.tsx                # Main dashboard layout
-│   │   │   ├── components/
-│   │   │   │   ├── DeckCanvas2D.tsx    # Deck.gl 3D/2.5D viewport
-│   │   │   │   ├── TelemetryPanel.tsx  # Real-time metrics display
-│   │   │   │   ├── ThreatTicker.tsx    # Dynamic threat alert feed
-│   │   │   │   ├── ComparativeStudyModal.tsx
-│   │   │   │   └── FoveatedStratifiedModal.tsx
-│   │   │   └── hooks/
-│   │   │       └── useLidarStream.ts   # WebSocket data hook
-│   │   ├── package.json
-│   │   └── next.config.ts
-│   │
-│   ├── scripts/                        # 🔧 Utilities
-│   │   ├── download_semantickitti_seq00.py
-│   │   ├── export_model_to_torchscript.py
-│   │   ├── benchmark_comparison.py
-│   │   └── mock_server.py             # Synthetic data server (no GPU needed)
-│   │
-│   └── docs/                           # 📖 Documentation
-│       ├── ARCHITECTURE.md
-│       └── DEPLOYMENT.md
-│
-└── .gitignore
+Stored local research runs used an **RTX 4060 Laptop GPU**, Python 3.10.11 and PyTorch 2.5.1+cu121. Three warm-up frames were excluded.
+
+| Stored run | Scans | Median processing | 95th percentile |
+| --- | ---: | ---: | ---: |
+| [Compact FP32](SENTINEL-2.5D/benchmarks/rtx4060-compact.json) | 10 | 88.03 ms | 88.54 ms |
+| [Adapted FP16](SENTINEL-2.5D/benchmarks/rtx4060-fp16-folded.json) | 30 | 41.41 ms | 42.71 ms |
+
+These historical records cover scan read, transfer, preprocessing, inference, aggregation, readback, cell assembly and JSON. **Network and browser time are excluded.** The FP16 record starts with a 36,383-point scan; it does not establish sustained 30 FPS or 120K points per frame. No new GPU benchmark was run for this portfolio update.
+
+The earlier 25 ms, 40 FPS, 99.8% reduction and RTX 4090 claims are withdrawn because the repository records do not substantiate them.
+
+## Checks
+
+```powershell
+python -m pytest SENTINEL-2.5D/tests -q
+cd SENTINEL-2.5D/frontend
+npm run build
 ```
 
----
+Verified **22 October 2026**: **8 Python tests passed**, **1 CUDA runtime test skipped**, and the frontend production build passed. Tests cover scan validation, exact transport byte counts, grid boundaries, explicit runtime modes, playback and slow-client isolation. [Validation details](docs/VALIDATION.md)
 
-## 🔧 Backend Modes
+## Engineering trade-offs
 
-The launcher auto-selects the best available backend:
+A 2.5D cell loses vertically overlapping detail compared with a full point cloud. Empty regions do not prove free space. Vehicle/person classes do not establish motion. Ground-truth segmentation accuracy has not been evaluated, and calibrated localization, planning and control are outside the implemented scope.
 
-| Priority | Mode | Latency | FPS | Requirements |
-|----------|------|---------|-----|-------------|
-| 1️⃣ | **C++/CUDA** | ~25ms | 40 | Built binary + CUDA GPU |
-| 2️⃣ | **Python** | ~300ms | 3 | PyTorch + model weights + dataset |
-| 3️⃣ | **Mock Server** | ~50ms | 20 | Python only (synthetic data) |
+The runtime uses Python orchestration with native CUDA C++ components; standalone native deployment has not been verified. The checkpoint adapter includes a legacy-kernel migration, and parity with the original research runtime has not been established.
 
-The mock server generates realistic synthetic LiDAR data — perfect for frontend development and demos without a GPU.
+## Credits
 
----
+- **Project implementation:** Rohan ([Rohanx777](https://github.com/Rohanx777)).
+- **Research contribution:** a collaborating friend.
+- **Pretrained model / original research:** [Cylinder3D](https://github.com/xinge008/Cylinder3D), Xinge Zhu and contributors. Adapted source, changes and Apache-2.0 terms are recorded in the [vendor notice](SENTINEL-2.5D/backend/python_legacy/vendor/NOTICE.md).
 
-## 🔬 Key Innovations
-
-### Adaptive Foveated Multi-Resolution Grid
-Unlike uniform grids, SENTINEL-2.5D uses a polar foveated grid with higher angular resolution near the sensor — matching how real perception systems prioritize nearby obstacles.
-
-### 2.5D Volumetric Compression
-Raw point clouds (120K points × 4 floats = 2MB/frame) are compressed into ~800 2D grid cells with height metadata (~20KB JSON). For the illustrative **2 MB → 20 KB** payload sizes above, the reduction is approximately **99%**. Actual bandwidth reduction depends on the scan, retained cells, precision and serialization; measure it on real payloads.
-
-### 10-Frame Temporal Majority Voting
-A sliding window buffer takes the statistical mode of class predictions over the last 10 frames, eliminating neural network prediction flicker and producing stable tactical classifications.
-
-### Motion-Compensated World Frame
-Vehicle ego-motion is tracked via KITTI odometry poses, enabling world-fixed coordinate visualization that removes sensor motion artifacts.
-
----
-
-## 🛡️ Security & Deployment
-
-- **Zero external dependencies** — all processing runs on-device
-- **Localhost-only by default** — WebSocket isolated to 127.0.0.1
-- **No cloud telemetry** — no data leaves the machine
-- **Docker-ready** — NVIDIA Container Toolkit supported
-
-See [Deployment Guide](SENTINEL-2.5D/docs/DEPLOYMENT.md) for production configuration, network setup, and Docker instructions.
-
----
-
-## 📖 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Architecture](SENTINEL-2.5D/docs/ARCHITECTURE.md) | Full data flow & tech stack breakdown |
-| [Deployment](SENTINEL-2.5D/docs/DEPLOYMENT.md) | Production setup, Docker, network config |
-| [Quick Start](SENTINEL-2.5D/QUICKSTART.md) | Step-by-step launch instructions |
-
----
-
-## Project contributions
-
-- **Implementation — Rohan ([Rohanx777](https://github.com/Rohanx777)):** complete project implementation, including the Python and C++/CUDA backends, 2.5D grid processing, WebSocket integration and Next.js/WebGL dashboard.
-- **Research — a collaborating friend:** research contribution supporting the project. The implementation and research roles are credited separately.
-
-## 🙏 Acknowledgments
-
-- **[Cylinder3D](https://github.com/xinge008/Cylinder3D)** — Zhu et al., CVPR 2021 — Sparse convolutional 3D segmentation
-- **[SemanticKITTI](http://www.semantic-kitti.org/)** — KITTI Vision Benchmark Suite
-- **[Deck.gl](https://deck.gl/)** — Uber's WebGL visualization framework
-- **[spconv](https://github.com/traveller59/spconv)** — Sparse convolution library
-
----
-
-<div align="center">
-
-**Built with ⚡ CUDA, 🧠 PyTorch, and 🌐 Next.js**
-
-*SENTINEL-2.5D — See everything. Miss nothing.*
-
-</div>
+This is a research prototype. Historical launch and deployment documents describe earlier experiments; use the entry point above for the demonstrated runtime. Dataset and checkpoint files are excluded from Git.

@@ -117,7 +117,9 @@ export interface StratifiedMetricsData {
 }
 
 export interface TelemetryMetrics {
-    engine: "CUDA GPU TIER 1" | "CPU OPENMP FALLBACK";
+    engine: string;
+    mode?: string;
+    payloadBytes?: number;
     fps: number;
     latencyMs: number;
     memorySavedPct: number;
@@ -157,12 +159,14 @@ interface BackendPayload {
         frame_id: number;
         timestamp: number;
         active_engine: string;
+        mode?: string;
         foveated_zones_active?: number;
         representation_modes?: string[];
     };
     telemetry?: {
         fps: number;
         latency_ms?: number;
+        payload_bytes?: number;
         latencyMs?: number;
         raw_points_count?: number;
         compressed_cells_count?: number;
@@ -195,13 +199,7 @@ function resolveLabel(raw: number | string): string {
     return LABEL_ID_MAP[raw] ?? "unknown";
 }
 
-function normalizeEngine(tier: string | undefined): TelemetryMetrics["engine"] {
-    if (!tier) return "CUDA GPU TIER 1";
-    const t = tier.toUpperCase();
-    if (t.includes("CUDA") || t.includes("TIER_1") || t.includes("TIER 1") || t.includes("GPU"))
-        return "CUDA GPU TIER 1";
-    return "CPU OPENMP FALLBACK";
-}
+function normalizeEngine(tier: string | undefined): string { return tier || "WAITING FOR STREAM"; }
 
 function normalizeCellList(rawList: any[] | undefined): CellTuple[] {
     if (!rawList || !rawList.length) return [];
@@ -214,6 +212,15 @@ function normalizeCellList(rawList: any[] | undefined): CellTuple[] {
     if (Array.isArray(first)) {
         return rawList.map((item: any) => {
             if (Array.isArray(item)) {
+                if (item.length === 8) {
+                    const [zone,ring,sector,elev,deltaZ,label,zMean,count] = item;
+                    const spec = [{start:0.5,step:0.5,sectors:128},{start:10,step:1,sectors:64},{start:30,step:2.5,sectors:32}][zone];
+                    if (!spec) throw new Error("Unknown grid zone");
+                    const r0=spec.start+ring*spec.step,r1=r0+spec.step;
+                    const p0=-Math.PI+sector*2*Math.PI/spec.sectors,p1=p0+2*Math.PI/spec.sectors,pm=(p0+p1)/2;
+                    const polygon: [number,number][] = [[r0*Math.cos(p0),r0*Math.sin(p0)],[r1*Math.cos(p0),r1*Math.sin(p0)],[r1*Math.cos(pm),r1*Math.sin(pm)],[r1*Math.cos(p1),r1*Math.sin(p1)],[r0*Math.cos(p1),r0*Math.sin(p1)]];
+                    return {polygon,elev,delta_z:deltaZ,z_mean:zMean,label:resolveLabel(label),cx:(r0+r1)/2*Math.cos(pm),cy:(r0+r1)/2*Math.sin(pm),r:(r0+r1)/2,azimuth_deg:(pm*180/Math.PI+360)%360,zone_id:zone,point_density:count};
+                }
                 const [x, y, zMax, deltaZ, label] = item;
                 const half = 1.0;
                 return {
@@ -247,11 +254,13 @@ function adaptPayload(raw: BackendPayload): StreamFrame | null {
 
     const telemetry: TelemetryMetrics = {
         engine: normalizeEngine(header?.active_engine),
-        fps: t?.fps ?? 30,
-        latencyMs: t?.latency_ms ?? t?.latencyMs ?? 24.5,
-        memorySavedPct: t?.memory_saved_percent ?? t?.memorySavedPct ?? 99.2,
-        speedKmh: t?.speed_kmh ?? raw.ego_vehicle?.speed_kmh ?? 36.0,
-        playbackSpeed: t?.playback_speed ?? 2.0,
+        mode: header?.mode,
+        payloadBytes: t?.payload_bytes,
+        fps: t?.fps ?? 0,
+        latencyMs: t?.latency_ms ?? t?.latencyMs ?? 0,
+        memorySavedPct: t?.memory_saved_percent ?? t?.memorySavedPct ?? 0,
+        speedKmh: t?.speed_kmh ?? raw.ego_vehicle?.speed_kmh ?? 0,
+        playbackSpeed: t?.playback_speed ?? 1.0,
     };
 
     return {
@@ -269,7 +278,8 @@ function adaptPayload(raw: BackendPayload): StreamFrame | null {
 
 export function useLidarStream() {
     const [connected, setConnected] = useState(false);
-    const [playbackSpeed, setLocalSpeed] = useState(2.0);
+    const [playbackSpeed, setLocalSpeed] = useState(1.0);
+    const speedRef = useRef(1.0);
     const [frame, setFrame] = useState<StreamFrame>({
         cells: [],
         polarCells: [],
@@ -279,12 +289,12 @@ export function useLidarStream() {
         stratifiedMetrics: null,
         egoVehicle: null,
         telemetry: {
-            engine: "CUDA GPU TIER 1",
-            fps: 30,
-            latencyMs: 24.5,
-            memorySavedPct: 99.2,
-            speedKmh: 36.0,
-            playbackSpeed: 2.0,
+            engine: "WAITING FOR STREAM",
+            fps: 0,
+            latencyMs: 0,
+            memorySavedPct: 0,
+            speedKmh: 0,
+            playbackSpeed: 1.0,
         },
         threats: [],
     });
@@ -295,6 +305,7 @@ export function useLidarStream() {
 
     const setPlaybackSpeed = useCallback((speed: number) => {
         setLocalSpeed(speed);
+        speedRef.current = speed;
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ action: "set_speed", speed }));
         }
@@ -320,7 +331,7 @@ export function useLidarStream() {
             if (isCancelled) return;
 
             try {
-                const wsUrl = "ws://127.0.0.1:8005/ws/stream_map";
+                const wsUrl = process.env.NEXT_PUBLIC_SENTINEL_WS_URL || `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:8005/ws/stream_map`;
                 console.log("[SENTINEL-2.5D] Connecting to:", wsUrl);
                 const ws = new WebSocket(wsUrl);
                 wsRef.current = ws;
@@ -330,7 +341,7 @@ export function useLidarStream() {
                     console.log("[SENTINEL-2.5D] Connected to stream!");
                     setConnected(true);
                     // Sync initial speed
-                    ws.send(JSON.stringify({ action: "set_speed", speed: playbackSpeed }));
+                    ws.send(JSON.stringify({ action: "set_speed", speed: speedRef.current }));
                 };
 
                 ws.onmessage = (event: MessageEvent) => {
@@ -341,6 +352,7 @@ export function useLidarStream() {
                                 ? JSON.parse(event.data)
                                 : JSON.parse(new TextDecoder().decode(event.data as ArrayBuffer));
 
+                        if (!("telemetry" in raw)) return;
                         const adapted = adaptPayload(raw);
                         if (adapted) {
                             latestFrameRef.current = adapted;
@@ -378,7 +390,7 @@ export function useLidarStream() {
             if (reconnectTimer) clearTimeout(reconnectTimer);
             if (wsRef.current) wsRef.current.close();
         };
-    }, [playbackSpeed]);
+    }, []);
 
     return {
         connected,

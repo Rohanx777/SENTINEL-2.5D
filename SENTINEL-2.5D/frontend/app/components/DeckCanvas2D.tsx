@@ -11,14 +11,14 @@ import type { CellTuple, Point3D, EgoVehicleState, ThreatObject } from "../hooks
 
 // ─── Label → colour (RGBA) ────────────────────────────────────────────────────
 const LABEL_COLORS: Record<string, [number, number, number, number]> = {
-    road: [34, 197, 94, 190],               // Emerald Green (Navigable Terrain)
-    static_obstacle: [239, 68, 68, 230],    // Vibrant Red (Walls / Buildings / Trees)
-    dynamic_target: [251, 191, 36, 240],    // Amber Gold (Vehicles / Targets)
-    negative_obstacle: [168, 85, 247, 240], // Tactical Purple (Potholes / Ditches / Trenches)
-    pothole: [168, 85, 247, 240],           // Tactical Purple
-    curb: [56, 189, 248, 220],              // Sky Cyan (Curbs / Step Edges)
-    threat: [239, 68, 68, 240],
-    unknown: [100, 116, 139, 140],
+    road: [91, 163, 143, 230],
+    static_obstacle: [211, 147, 126, 255],
+    dynamic_target: [225, 188, 107, 255],
+    negative_obstacle: [167, 151, 209, 255],
+    pothole: [167, 151, 209, 255],
+    curb: [127, 188, 209, 255],
+    threat: [211, 147, 126, 255],
+    unknown: [118, 132, 153, 190],
 };
 
 function getColor(label: string): [number, number, number, number] {
@@ -76,9 +76,9 @@ interface Props {
 // ─── Camera Views ─────────────────────────────────────────────────────────────
 const INITIAL_VIEW_STATE = {
     target: [0, 0, 0] as [number, number, number],
-    rotationX: 38,
-    rotationOrbit: 0,
-    zoom: 2.3,
+    rotationX: 48,
+    rotationOrbit: -25,
+    zoom: 2.7,
     minZoom: 0.5,
     maxZoom: 8,
 };
@@ -127,6 +127,20 @@ export default function DeckCanvas2D({
     coordinateFrame = "sensor",
 }: Props) {
     const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
+    const [cameraPreset, setCameraPreset] = useState("perspective");
+    const [cameraViews, setCameraViews] = useState<Record<string, any>>({
+        'main-pane': INITIAL_VIEW_STATE,
+        'left-pane': {...INITIAL_VIEW_STATE, zoom: 2},
+        'right-pane': {...INITIAL_VIEW_STATE, zoom: 2},
+    });
+    const selectCamera = (preset: string) => {
+        setCameraPreset(preset);
+        const camera = preset === 'top'
+            ? {...INITIAL_VIEW_STATE, rotationX: 0, rotationOrbit: 0}
+            : INITIAL_VIEW_STATE;
+        setCameraViews({'main-pane': camera, 'left-pane': {...camera, zoom: 2}, 'right-pane': {...camera, zoom: 2}});
+        setTooltip(null);
+    };
 
     // Reset tooltip on mode or coordinate frame switch
     useEffect(() => {
@@ -160,7 +174,7 @@ export default function DeckCanvas2D({
 
             return {
                 polygon,
-                elev: Math.max(0.12, c.elev ?? 0.2),
+                elev: Math.max(0, c.elev ?? 0),
                 delta_z: c.delta_z ?? 0.1,
                 z_mean: c.z_mean,
                 slope_deg: c.slope_deg,
@@ -186,22 +200,22 @@ export default function DeckCanvas2D({
             {
                 path: createRangeRing(10.0),
                 radius: 10.0,
-                color: [6, 182, 212, 180],
-                width: 2.5,
+                color: [143, 174, 195, 65],
+                width: 1.0,
                 name: "Zone 0: Safety Core (0-10m)",
             },
             {
                 path: createRangeRing(30.0),
                 radius: 30.0,
-                color: [59, 130, 246, 150],
-                width: 2.0,
+                color: [143, 174, 195, 55],
+                width: 1.0,
                 name: "Zone 1: Tactical Corridor (10-30m)",
             },
             {
                 path: createRangeRing(60.0),
                 radius: 60.0,
-                color: [147, 51, 234, 120],
-                width: 1.5,
+                color: [143, 174, 195, 45],
+                width: 1.0,
                 name: "Zone 2: Perimeter Surveillance (30-100m)",
             },
         ];
@@ -329,35 +343,38 @@ export default function DeckCanvas2D({
             if (isPolar && coordinateFrame === "sensor") {
                 layerList.push(
                     new PathLayer({
+                        widthUnits: "pixels",
                         id: `polar-range-rings-${gridType}-${visMode}-${coordinateFrame}`,
                         data: polarRingsData,
                         coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
                         getPath: (d: any) => d.path,
-                        getColor: [6, 182, 212, 45],
+                        getColor: [143, 174, 195, 28],
                         getWidth: 1.0,
                         widthMinPixels: 1,
                         pickable: false,
                         ...(leftViewId ? { viewId: leftViewId } : {}),
                     }),
                     new PathLayer({
+                        widthUnits: "pixels",
                         id: `polar-azimuth-rays-${gridType}-${visMode}-${coordinateFrame}`,
                         data: azimuthRaysData,
                         coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
                         getPath: (d: any) => d.path,
-                        getColor: [6, 182, 212, 35],
+                        getColor: [143, 174, 195, 18],
                         getWidth: 1.0,
                         widthMinPixels: 1,
                         pickable: false,
                         ...(leftViewId ? { viewId: leftViewId } : {}),
                     }),
                     new PathLayer({
+                        widthUnits: "pixels",
                         id: `foveated-zone-rings-${gridType}-${visMode}-${coordinateFrame}`,
                         data: foveatedZoneRings,
                         coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
                         getPath: (d: any) => d.path,
                         getColor: (d: any) => d.color,
                         getWidth: (d: any) => d.width,
-                        widthMinPixels: 2,
+                        widthMinPixels: 1,
                         pickable: false,
                         ...(leftViewId ? { viewId: leftViewId } : {}),
                     })
@@ -365,6 +382,7 @@ export default function DeckCanvas2D({
             } else if (!isPolar && coordinateFrame === "sensor") {
                 layerList.push(
                     new PathLayer({
+                        widthUnits: "pixels",
                         id: `cartesian-grid-lines-${gridType}-${visMode}-${coordinateFrame}`,
                         data: cartesianGridData,
                         coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
@@ -426,11 +444,13 @@ export default function DeckCanvas2D({
                     getPolygon: (d) => d.polygon,
                     getElevation: (d) => d.elev,
                     getFillColor: (d) => d.color || [34, 197, 94, 200],
-                    getLineColor: [0, 0, 0, 90],
-                    lineWidthMinPixels: 1,
+                    getLineColor: [25, 39, 51, 90],
+                    lineWidthMinPixels: 0.5,
+                    stroked: true,
+                    material: {ambient: 0.5, diffuse: 0.65, shininess: 18, specularColor: [80, 90, 100]},
                     pickable: true,
                     extruded: true,
-                    elevationScale: 1.4,
+                    elevationScale: 1,
                     updateTriggers: {
                         getElevation: normalizedCells,
                         getFillColor: normalizedCells,
@@ -456,9 +476,9 @@ export default function DeckCanvas2D({
                     data: pointCloudData,
                     coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
                     getPosition: (d: any) => d.position,
-                    getRadius: 0.35,
-                    radiusMinPixels: 2,
-                    radiusMaxPixels: 6,
+                    getRadius: 0.09,
+                    radiusMinPixels: 1,
+                    radiusMaxPixels: 3,
                     getFillColor: (d: any) => d.color,
                     pickable: true,
                     updateTriggers: {
@@ -489,7 +509,7 @@ export default function DeckCanvas2D({
                         getTargetPosition: (d: any) => d.targetPosition,
                         getColor: [239, 68, 68, 255],
                         getWidth: 3.0,
-                        widthMinPixels: 2,
+                        widthMinPixels: 1,
                         pickable: false,
                         ...(leftViewId ? { viewId: leftViewId } : {}),
                     }),
@@ -519,7 +539,7 @@ export default function DeckCanvas2D({
                         getTargetPosition: (d: any) => d.targetPosition,
                         getColor: [239, 68, 68, 255],
                         getWidth: 3.0,
-                        widthMinPixels: 2,
+                        widthMinPixels: 1,
                         pickable: false,
                         ...(rightViewId ? { viewId: rightViewId } : {}),
                     })
@@ -543,14 +563,14 @@ export default function DeckCanvas2D({
     ]);
 
     return (
-        <div className="relative w-full h-full bg-[#030712] overflow-hidden select-none">
+        <div className="relative w-full h-full bg-[#101923] overflow-hidden select-none">
             {/* Tactical Radar Radial Background Glow */}
             <div
                 className="absolute inset-0 pointer-events-none z-0 opacity-40"
                 style={{
                     backgroundImage:
                         gridType === "polar"
-                            ? "radial-gradient(circle at center, rgba(6,182,212,0.18) 0%, rgba(6,182,212,0.04) 50%, transparent 75%)"
+                            ? "radial-gradient(circle at center, rgba(139,170,196,0.16) 0%, rgba(139,170,196,0.03) 50%, transparent 75%)"
                             : "linear-gradient(to right, rgba(59,130,246,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(59,130,246,0.05) 1px, transparent 1px)",
                     backgroundSize: gridType === "polar" ? "auto" : "30px 30px",
                 }}
@@ -571,10 +591,10 @@ export default function DeckCanvas2D({
                         <Layers className="w-3.5 h-3.5 text-cyan-400" />
                         <div>
                             <p className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest">
-                                2.5D Adaptive Foveated Grid
+                                Height grid
                             </p>
                             <p className="text-[8px] text-slate-400 font-mono">
-                                Compressed ({normalizedCells.length} cells) · 99.2% Memory Saved
+                                Height-grid representation ({normalizedCells.length} cells)
                             </p>
                         </div>
                     </div>
@@ -584,10 +604,10 @@ export default function DeckCanvas2D({
                         <Box className="w-3.5 h-3.5 text-purple-400" />
                         <div className="text-right">
                             <p className="text-[10px] font-bold text-purple-300 uppercase tracking-widest">
-                                Raw 3D Point Cloud
+                                Sampled point cloud
                             </p>
                             <p className="text-[8px] text-slate-400 font-mono">
-                                Uncompressed ({pointCloudData.length * 50}+ pts) · 4.8 MB / scan
+                                Sampled preview ({pointCloudData.length} points)
                             </p>
                         </div>
                     </div>
@@ -601,14 +621,14 @@ export default function DeckCanvas2D({
                         <>
                             <Compass className="w-3.5 h-3.5 text-cyan-400" />
                             <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-widest">
-                                2.5D {gridType === "polar" ? "Foveated Polar" : "Linear Cartesian"} Grid
+                                {gridType === "polar" ? "Polar height grid" : "Cartesian height grid"}
                             </span>
                         </>
                     ) : (
                         <>
                             <Box className="w-3.5 h-3.5 text-purple-400" />
                             <span className="text-[10px] font-bold text-purple-300 uppercase tracking-widest">
-                                3D Volumetric Point Cloud
+                                Sampled point cloud
                             </span>
                         </>
                     )}
@@ -619,7 +639,9 @@ export default function DeckCanvas2D({
             <DeckGL
                 views={views}
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                initialViewState={INITIAL_VIEW_STATE as any}
+                viewState={cameraViews}
+                onViewStateChange={({viewId, viewState}) =>
+                    setCameraViews(previous => ({...previous, [viewId]: viewState}))}
                 controller={{
                     dragRotate: true,
                     dragPan: true,
@@ -627,9 +649,24 @@ export default function DeckCanvas2D({
                     doubleClickZoom: true,
                 }}
                 layers={layers}
+                layerFilter={({layer, viewport}) => {
+                    if (visMode !== 'split_comparison') return true;
+                    const isPointPreview = layer.id.includes('3d');
+                    return viewport.id === 'right-pane' ? isPointPreview : !isPointPreview;
+                }}
                 style={{ position: "absolute", inset: "0" }}
             />
 
+            <div className="absolute right-4 top-16 z-30 flex gap-1 rounded-xl border border-white/10 bg-[#152130]/95 p-1 shadow-lg">
+                {[['perspective', 'Perspective'], ['top', 'Top view']].map(([value, label]) =>
+                    <button key={value} onClick={() => selectCamera(value)} aria-pressed={cameraPreset === value}
+                        className={`rounded-lg px-3 py-2 text-[11px] transition-colors ${cameraPreset === value ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}>{label}</button>)}
+                <button onClick={() => selectCamera(cameraPreset)} className="rounded-lg px-3 py-2 text-[11px] text-slate-400 hover:text-white" aria-label="Reset camera">Reset</button>
+            </div>
+            <div className="pointer-events-none absolute bottom-20 left-4 z-20 text-[10px] leading-5 text-slate-400">
+                Drag to orbit · Shift + drag to pan · Scroll to zoom<br/>
+                Height scale 1:1 · Empty areas have no displayed samples
+            </div>
             {/* Hover Tooltip */}
             {tooltip && (
                 <div
