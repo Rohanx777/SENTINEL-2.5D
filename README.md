@@ -15,7 +15,9 @@
 
 ---
 
-**25ms latency** · **40 FPS throughput** · **120K+ points/frame** · **99.8% bandwidth compression**
+**Project-reported targets:** 25 ms latency · 40 FPS throughput · 120K+ points/frame
+
+> **Prototype / performance status:** the headline timings and benchmark table have not been reproduced as part of this repository review. The included comparison script projects C++/CUDA timings; raw hardware run logs are not included. See the performance section before citing these figures.
 
 *A defense-grade LiDAR perception system that processes raw Velodyne point clouds through GPU-accelerated CUDA kernels, performs semantic segmentation via Cylinder3D neural inference, and streams compressed tactical data to a real-time WebGL dashboard — all in under 25 milliseconds.*
 
@@ -86,9 +88,11 @@ The system compresses Cylinder3D's 20-class SemanticKITTI output into 3 tactical
 
 ---
 
-## 📊 Performance Benchmarks
+## 📊 Reported Performance — Reproduction Pending
 
-Measured on **NVIDIA RTX 4090** with **SemanticKITTI Sequence 00** (120,543 avg points/frame):
+The original project documentation reports the following figures for **NVIDIA RTX 4090** and **SemanticKITTI Sequence 00** (120,543 average points/frame). Raw run logs are not included in this repository, so these figures need reproduction before they can be treated as verified benchmarks.
+
+The included `scripts/benchmark_comparison.py` measures the Python path on synthetic scans and **projects** C++/CUDA stage timings; it does not measure the complete C++/CUDA pipeline. A hardware run with recorded commands, model checkpoint, dataset, warm-up and repeated timings is still needed.
 
 | Metric | C++/CUDA | Python Baseline | Speedup |
 |--------|----------|-----------------|---------|
@@ -258,7 +262,7 @@ The mock server generates realistic synthetic LiDAR data — perfect for fronten
 Unlike uniform grids, SENTINEL-2.5D uses a polar foveated grid with higher angular resolution near the sensor — matching how real perception systems prioritize nearby obstacles.
 
 ### 2.5D Volumetric Compression
-Raw point clouds (120K points × 4 floats = 2MB/frame) are compressed into ~800 2D grid cells with height metadata (~20KB JSON). A **99.8% bandwidth reduction** that enables real-time WebSocket streaming.
+Raw point clouds (120K points × 4 floats = 2MB/frame) are compressed into ~800 2D grid cells with height metadata (~20KB JSON). For the illustrative **2 MB → 20 KB** payload sizes above, the reduction is approximately **99%**. Actual bandwidth reduction depends on the scan, retained cells, precision and serialization; measure it on real payloads.
 
 ### 10-Frame Temporal Majority Voting
 A sliding window buffer takes the statistical mode of class predictions over the last 10 frames, eliminating neural network prediction flicker and producing stable tactical classifications.
